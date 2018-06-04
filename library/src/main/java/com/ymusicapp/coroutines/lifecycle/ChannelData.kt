@@ -10,6 +10,17 @@ import kotlinx.coroutines.experimental.channels.consumeEach
 import kotlinx.coroutines.experimental.channels.produce
 import kotlin.coroutines.experimental.CoroutineContext
 
+/**
+ * Convert a channel to "lifecycle-aware channel".
+ * New channel's behavior:
+ *   - It won't send new value when [lifecycle] in inactive state (e.g Fragment/Activity paused).
+ *   - Latest value will deliver when [lifecycle] back to active state. (e.g Fragment/Activity resumed).
+ *   - Auto call [Channel.cancel] when [lifecycle] change to [Lifecycle.State.DESTROYED] state.
+ *
+ * _Cancel this channel won't cancel original channel._
+ *
+ * @param lifecycle Lifecycle used to make new channel.
+ */
 fun <T> ReceiveChannel<T>.withLifecycle(
         lifecycle: Lifecycle,
         context: CoroutineContext = Unconfined,
@@ -34,6 +45,10 @@ fun <T> ReceiveChannel<T>.withLifecycle(
     }
 }
 
+/**
+ * @see withLifecycle
+ * @param lifecycleOwner Lifecycle used to make new channel.
+ */
 fun <T> ReceiveChannel<T>.withLifecycle(
         lifecycleOwner: LifecycleOwner,
         context: CoroutineContext = UI,
