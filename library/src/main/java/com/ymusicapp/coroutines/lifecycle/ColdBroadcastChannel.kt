@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * Subclasses can override [onBecomeActive] and [onBecomeInactive] to start/stop working its job.
  */
 @Suppress("unused")
-open class ColdBroadcastChannel<T> protected constructor(
+open class ColdBroadcastChannel<T> private constructor(
         private val broadcastChannel: BroadcastChannel<T>
 ) : BroadcastChannel<T> by broadcastChannel {
 

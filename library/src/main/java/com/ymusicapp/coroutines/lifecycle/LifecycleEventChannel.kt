@@ -17,28 +17,31 @@ import kotlinx.coroutines.experimental.launch
  * Bring [Lifecycle.Event]s to coroutine world with [Channel].
  */
 @Suppress("unused")
-class LifecycleEventChannel private constructor(
+class LifecycleEventChannel @MainThread private constructor(
         private val lifecycle: Lifecycle,
         private val channel: Channel<Lifecycle.Event>
 ) : LifecycleObserver, ReceiveChannel<Lifecycle.Event> by channel {
 
+    @MainThread
     constructor(
             lifecycleOwner: LifecycleOwner,
             capacity: Int = 0
     ) : this(lifecycleOwner.lifecycle, Channel(capacity))
 
+    @MainThread
     constructor(
             lifecycle: Lifecycle,
             capacity: Int = 0
     ) : this(lifecycle, Channel(capacity))
 
     init {
+        check(isMainThread())
         lifecycle.addObserver(this)
     }
 
     @AnyThread
     override fun cancel(cause: Throwable?): Boolean {
-        launch(UI) {
+        launchOnMainThread {
             lifecycle.removeObserver(this@LifecycleEventChannel)
         }
         return channel.cancel(cause)
