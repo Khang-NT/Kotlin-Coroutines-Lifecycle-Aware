@@ -60,3 +60,6 @@ With coroutine channel, this is much more flexible, just consume our channel usi
 ```groovy
 implementation "com.ymusicapp.coroutines:channel-lifecycle:<latest-version>"
 ```
+
+# License
+[Apache License Version 2.0](LICENSE)
