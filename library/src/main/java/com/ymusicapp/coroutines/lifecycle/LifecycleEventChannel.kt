@@ -47,6 +47,9 @@ class LifecycleEventChannel private constructor(
         launch(Unconfined) {
             try {
                 channel.send(event)
+                if (event == Lifecycle.Event.ON_DESTROY) {
+                    channel.close()
+                }
             } catch (ignore: ClosedSendChannelException) {
                 // channel just closed, ignore this
             }
