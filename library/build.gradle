@@ -16,6 +16,8 @@ android {
         targetSdkVersion config.targetSdkVersion
 
         consumerProguardFiles 'proguard-rules.pro'
+
+        archivesBaseName = "channel-lifecycle"
     }
 }
 
@@ -25,4 +27,24 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinCoroutinesVersion"
 
     implementation "android.arch.lifecycle:runtime:$lifecycleVersion"
+}
+
+tasks.withType(Javadoc).all {
+    // Javadoc doesn't support kotlin document format
+    enabled = false
+}
+
+if (hasProperty("enabledPublish") && enabledPublish) {
+    apply plugin: 'com.novoda.bintray-release'
+
+    publish {
+        groupId = 'com.ymusicapp.coroutines'
+        artifactId = 'channel-lifecycle'
+        desc = "This library aims to make coroutine channel aware with Android's lifecycle, " +
+                "especially acting like LiveData's behavior."
+        publishVersion = '0.0.1'
+        repoName = 'maven'
+        userOrg = 'khang-nt'
+        website = 'https://github.com/Khang-NT/Kotlin-Coroutines-Lifecycle-Aware'
+    }
 }
