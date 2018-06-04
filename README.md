@@ -1,5 +1,5 @@
-## Coroutine channel lifecycle-aware
-
+[![Download](https://api.bintray.com/packages/khang-nt/maven/channel-lifecycle/images/download.svg)](https://bintray.com/khang-nt/maven/channel-lifecycle/_latestVersion)
+# Coroutine channel lifecycle-aware
 If you've already tried both coroutine channel and [Jetpack's LiveData](https://developer.android.com/jetpack/), you
 will find that coroutine channel is more robust and flexible than LiveData, but it lacks of handling
 Android's lifecycle.
@@ -55,6 +55,11 @@ With `LiveData`, you can't observe data on background thread directly.
 
 With coroutine channel, this is much more flexible, just consume our channel using other dispatcher in coroutine context, such as `CommonPool`.
 
-## Install
 
-Developing.
+# Download
+```groovy
+implementation "com.ymusicapp.coroutines:channel-lifecycle:<latest-version>"
+```
+
+# License
+[Apache License Version 2.0](LICENSE)

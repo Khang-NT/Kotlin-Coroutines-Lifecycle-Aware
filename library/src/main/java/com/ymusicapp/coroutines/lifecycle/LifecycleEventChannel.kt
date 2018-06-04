@@ -13,6 +13,9 @@ import kotlinx.coroutines.experimental.channels.ClosedSendChannelException
 import kotlinx.coroutines.experimental.channels.ReceiveChannel
 import kotlinx.coroutines.experimental.launch
 
+/**
+ * Bring [Lifecycle.Event]s to coroutine world with [Channel].
+ */
 @Suppress("unused")
 class LifecycleEventChannel private constructor(
         private val lifecycle: Lifecycle,
@@ -44,9 +47,13 @@ class LifecycleEventChannel private constructor(
     @MainThread
     @OnLifecycleEvent(Lifecycle.Event.ON_ANY)
     fun onAny(source: LifecycleOwner, event: Lifecycle.Event) {
+        check(event != Lifecycle.Event.ON_ANY) { "Invalid event" }
         launch(Unconfined) {
             try {
                 channel.send(event)
+                if (event == Lifecycle.Event.ON_DESTROY) {
+                    channel.close()
+                }
             } catch (ignore: ClosedSendChannelException) {
                 // channel just closed, ignore this
             }
