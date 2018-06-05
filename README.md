@@ -55,6 +55,43 @@ With `LiveData`, you can't observe data on background thread directly.
 
 With coroutine channel, this is much more flexible, just consume our channel using other dispatcher in coroutine context, such as `CommonPool`.
 
+### ColdBroadcastChannel - LiveData#onActive/onInactive alternative
+
+You can inherit `LiveData` class to take advantage of method `onActive` and `onInactive`, for instance when using with Room,
+you can stop listen database changes when `LiveData` become inactive.
+
+Alternative class available in this library is `ColdBroadcastChannel`, example usage:
+```kotlin
+val coldBroadcastChannel = object : ColdBroadcastChannel<Model>(Channel.CONFLATED) {
+    var job: Job? = null
+
+    override fun onBecomeActive() {
+        job = Job()
+        launch(parent = job) {
+            database.observeChange {
+                send(database.query())
+            }
+        }
+    }
+
+    override fun onBecomeInactive() {
+        job.cancel()
+    }
+}
+
+// usage
+launch(UI) {
+    coldBroadcastChannel.openSubscription().consumeEach {
+        // stuff
+    }
+    // or open subscription with lifecycle-aware
+    coldBroadcastChannel.openSubscription(lifecycleOwner).consumeEach {
+        // stuff, it works like method withLifecycle
+    }
+}
+
+```
+
 
 # Download
 ```groovy

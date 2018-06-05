@@ -28,7 +28,7 @@ fun <T> ReceiveChannel<T>.withLifecycle(
 ): ReceiveChannel<T> = produce(context, capacity) {
     lifecycle.currentState != Lifecycle.State.DESTROYED || return@produce
 
-    val lifecycleEventChannel = LifecycleEventChannel(lifecycle, Channel.CONFLATED)
+    val lifecycleEventChannel = withMainThread { LifecycleEventChannel(lifecycle, Channel.CONFLATED) }
     val sourceData = this@withLifecycle
     val combined = combineLatest(sourceData, lifecycleEventChannel, capacity = 0)
 
@@ -51,6 +51,6 @@ fun <T> ReceiveChannel<T>.withLifecycle(
  */
 fun <T> ReceiveChannel<T>.withLifecycle(
         lifecycleOwner: LifecycleOwner,
-        context: CoroutineContext = UI,
+        context: CoroutineContext = Unconfined,
         capacity: Int = Channel.UNLIMITED
 ): ReceiveChannel<T> = withLifecycle(lifecycleOwner.lifecycle, context, capacity)
