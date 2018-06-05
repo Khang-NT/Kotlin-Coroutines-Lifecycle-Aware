@@ -7,6 +7,7 @@ import android.arch.lifecycle.OnLifecycleEvent
 import android.support.annotation.AnyThread
 import android.support.annotation.MainThread
 import kotlinx.coroutines.experimental.channels.BroadcastChannel
+import kotlinx.coroutines.experimental.channels.ConflatedBroadcastChannel
 import kotlinx.coroutines.experimental.channels.ReceiveChannel
 import kotlinx.coroutines.experimental.channels.SubscriptionReceiveChannel
 import java.util.concurrent.atomic.AtomicBoolean
@@ -18,11 +19,11 @@ import java.util.concurrent.atomic.AtomicInteger
  * Subclasses can override [onBecomeActive] and [onBecomeInactive] to start/stop working its job.
  */
 @Suppress("unused")
-open class ColdBroadcastChannel<T> private constructor(
-        private val broadcastChannel: BroadcastChannel<T>
-) : BroadcastChannel<T> by broadcastChannel {
+open class ColdBroadcastChannel<T>(
+        private val conflatedBroadcastChannel: ConflatedBroadcastChannel<T>
+) : BroadcastChannel<T> by conflatedBroadcastChannel {
 
-    constructor(capacity: Int) : this(BroadcastChannel(capacity))
+    constructor() : this(ConflatedBroadcastChannel())
 
     private val isActive = AtomicBoolean(false)
     private val activeSubscriptionCount = AtomicInteger(0)
@@ -52,13 +53,23 @@ open class ColdBroadcastChannel<T> private constructor(
     }
 
     /**
+     * @see ConflatedBroadcastChannel.value
+     */
+    val value: T get() = conflatedBroadcastChannel.value
+
+    /**
+     * @see ConflatedBroadcastChannel.valueOrNull
+     */
+    val valueOrNull: T? get() = conflatedBroadcastChannel.valueOrNull
+
+    /**
      * Check if this broadcast channel has any **active** subscription.
      * @return true if there are at least open subscription in active state.
      */
     fun hasActiveSubscriptions() = isActive.get()
 
     override fun openSubscription(): SubscriptionReceiveChannel<T> {
-        return SubscriptionReceiveChannelWrapper(broadcastChannel.openSubscription())
+        return SubscriptionReceiveChannelWrapper(conflatedBroadcastChannel.openSubscription())
                 .also { onActivate(it) }
     }
 
@@ -66,7 +77,7 @@ open class ColdBroadcastChannel<T> private constructor(
     fun openSubscription(lifecycleOwner: LifecycleOwner): SubscriptionReceiveChannel<T> {
         check(isMainThread())
         val lifecycle = lifecycleOwner.lifecycle
-        val subscription = broadcastChannel.openSubscription()
+        val subscription = conflatedBroadcastChannel.openSubscription()
         if (lifecycle.currentState == Lifecycle.State.DESTROYED) {
             subscription.cancel()
             return subscription
