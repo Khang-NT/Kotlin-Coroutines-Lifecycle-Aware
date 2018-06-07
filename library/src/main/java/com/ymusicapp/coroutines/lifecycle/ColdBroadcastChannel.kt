@@ -14,12 +14,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Class helps to implement cold broadcast channel.
- *
+ * This class uses [ConflatedBroadcastChannel] implementation as backend, with addition tracking
+ * subscription feature.
  * Subclasses can override [onBecomeActive] and [onBecomeInactive] to start/stop working its job.
  */
 @Suppress("unused")
-open class ColdBroadcastChannel<T>(
+open class ColdBroadcastChannel<T : Any>(
         private val conflatedBroadcastChannel: ConflatedBroadcastChannel<T>
 ) : BroadcastChannel<T> by conflatedBroadcastChannel {
 
@@ -107,7 +107,7 @@ open class ColdBroadcastChannel<T>(
         }
     }
 
-    private open inner class SubscriptionReceiveChannelWrapper<T>(
+    private open inner class SubscriptionReceiveChannelWrapper<T : Any>(
             private val subscription: ReceiveChannel<T>
     ) : SubscriptionReceiveChannel<T>, ReceiveChannel<T> by subscription {
 
@@ -119,7 +119,7 @@ open class ColdBroadcastChannel<T>(
         }
     }
 
-    private inner class SubscriptionReceiveChannelWithLifecycle<T> @MainThread constructor(
+    private inner class SubscriptionReceiveChannelWithLifecycle<T : Any> @MainThread constructor(
             private val lifecycle: Lifecycle,
             subscription: ReceiveChannel<T>
     ) : SubscriptionReceiveChannelWrapper<T>(subscription.withLifecycle(lifecycle)), LifecycleObserver {

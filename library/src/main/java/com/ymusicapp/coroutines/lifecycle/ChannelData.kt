@@ -3,7 +3,6 @@ package com.ymusicapp.coroutines.lifecycle
 import android.arch.lifecycle.Lifecycle
 import android.arch.lifecycle.LifecycleOwner
 import kotlinx.coroutines.experimental.Unconfined
-import kotlinx.coroutines.experimental.android.UI
 import kotlinx.coroutines.experimental.channels.Channel
 import kotlinx.coroutines.experimental.channels.ReceiveChannel
 import kotlinx.coroutines.experimental.channels.consumeEach
@@ -21,7 +20,7 @@ import kotlin.coroutines.experimental.CoroutineContext
  *
  * @param lifecycle Lifecycle used to make new channel.
  */
-fun <T> ReceiveChannel<T>.withLifecycle(
+fun <T : Any> ReceiveChannel<T>.withLifecycle(
         lifecycle: Lifecycle,
         context: CoroutineContext = Unconfined,
         capacity: Int = Channel.CONFLATED
@@ -49,7 +48,7 @@ fun <T> ReceiveChannel<T>.withLifecycle(
  * @see withLifecycle
  * @param lifecycleOwner Lifecycle used to make new channel.
  */
-fun <T> ReceiveChannel<T>.withLifecycle(
+fun <T : Any> ReceiveChannel<T>.withLifecycle(
         lifecycleOwner: LifecycleOwner,
         context: CoroutineContext = Unconfined,
         capacity: Int = Channel.UNLIMITED

@@ -18,7 +18,7 @@ inline fun <A, B> bothNotNull(a: A?, b: B?, action: (A, B) -> Unit) {
     }
 }
 
-fun <A, B> combineLatest(
+fun <A : Any, B : Any> combineLatest(
         channelA: ReceiveChannel<A>,
         channelB: ReceiveChannel<B>,
         context: CoroutineContext = Unconfined,
