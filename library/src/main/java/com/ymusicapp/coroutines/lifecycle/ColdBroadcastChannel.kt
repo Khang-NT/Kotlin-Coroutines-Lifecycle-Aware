@@ -19,11 +19,13 @@ import java.util.concurrent.atomic.AtomicInteger
  * Subclasses can override [onBecomeActive] and [onBecomeInactive] to start/stop working its job.
  */
 @Suppress("unused")
-open class ColdBroadcastChannel<T : Any>(
+open class ColdBroadcastChannel<T : Any> private constructor(
         private val conflatedBroadcastChannel: ConflatedBroadcastChannel<T>
 ) : BroadcastChannel<T> by conflatedBroadcastChannel {
 
     constructor() : this(ConflatedBroadcastChannel())
+
+    constructor(initValue: T): this(ConflatedBroadcastChannel(initValue))
 
     private val isActive = AtomicBoolean(false)
     private val activeSubscriptionCount = AtomicInteger(0)
@@ -114,8 +116,9 @@ open class ColdBroadcastChannel<T : Any>(
         val activating: AtomicBoolean = AtomicBoolean(false)
 
         override fun cancel(cause: Throwable?): Boolean {
-            onDeactivate(this)
-            return subscription.cancel(cause)
+            return subscription.cancel(cause).also { closed ->
+                if (closed) onDeactivate(this)
+            }
         }
     }
 
@@ -123,8 +126,6 @@ open class ColdBroadcastChannel<T : Any>(
             private val lifecycle: Lifecycle,
             subscription: ReceiveChannel<T>
     ) : SubscriptionReceiveChannelWrapper<T>(subscription.withLifecycle(lifecycle)), LifecycleObserver {
-
-        private val observingLifecycle = AtomicBoolean(true)
 
         init {
             check(isMainThread())
@@ -148,12 +149,13 @@ open class ColdBroadcastChannel<T : Any>(
         }
 
         override fun cancel(cause: Throwable?): Boolean {
-            if (observingLifecycle.compareAndSet(true, false)) {
-                launchOnMainThread {
-                    lifecycle.removeObserver(this)
+            return super.cancel(cause).also { closed ->
+                if (closed) {
+                    launchOnMainThread {
+                        lifecycle.removeObserver(this)
+                    }
                 }
             }
-            return super.cancel(cause)
         }
 
     }
