@@ -27,23 +27,28 @@ fun <A : Any, B : Any> combineLatest(
     var latestA: A? = null
     var latestB: B? = null
     return produce(context, capacity) {
-        whileSelect {
-            channelA.onReceiveOrNull {
-                it != null || return@onReceiveOrNull false
-                latestA = it
-                bothNotNull(latestA, latestB) { a, b ->
-                    send(Pair(a, b))
+        try {
+            whileSelect {
+                channelA.onReceiveOrNull {
+                    it != null || return@onReceiveOrNull false
+                    latestA = it
+                    bothNotNull(latestA, latestB) { a, b ->
+                        send(Pair(a, b))
+                    }
+                    return@onReceiveOrNull true
                 }
-                return@onReceiveOrNull true
-            }
-            channelB.onReceiveOrNull {
-                it != null || return@onReceiveOrNull false
-                latestB = it
-                bothNotNull(latestA, latestB) { a, b ->
-                    send(Pair(a, b))
+                channelB.onReceiveOrNull {
+                    it != null || return@onReceiveOrNull false
+                    latestB = it
+                    bothNotNull(latestA, latestB) { a, b ->
+                        send(Pair(a, b))
+                    }
+                    return@onReceiveOrNull true
                 }
-                return@onReceiveOrNull true
             }
+        } finally {
+            channelA.cancel()
+            channelB.cancel()
         }
     }
 }
