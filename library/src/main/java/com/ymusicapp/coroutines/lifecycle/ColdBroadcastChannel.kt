@@ -1,14 +1,8 @@
 package com.ymusicapp.coroutines.lifecycle
 
-import android.arch.lifecycle.Lifecycle
-import android.arch.lifecycle.LifecycleObserver
-import android.arch.lifecycle.LifecycleOwner
-import android.arch.lifecycle.OnLifecycleEvent
 import android.support.annotation.AnyThread
-import android.support.annotation.MainThread
 import kotlinx.coroutines.experimental.channels.BroadcastChannel
 import kotlinx.coroutines.experimental.channels.ConflatedBroadcastChannel
-import kotlinx.coroutines.experimental.channels.ReceiveChannel
 import kotlinx.coroutines.experimental.channels.SubscriptionReceiveChannel
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -25,7 +19,7 @@ open class ColdBroadcastChannel<T : Any> private constructor(
 
     constructor() : this(ConflatedBroadcastChannel())
 
-    constructor(initValue: T): this(ConflatedBroadcastChannel(initValue))
+    constructor(initValue: T) : this(ConflatedBroadcastChannel(initValue))
 
     private val isActive = AtomicBoolean(false)
     private val activeSubscriptionCount = AtomicInteger(0)
@@ -71,25 +65,12 @@ open class ColdBroadcastChannel<T : Any> private constructor(
     fun hasActiveSubscriptions() = isActive.get()
 
     override fun openSubscription(): SubscriptionReceiveChannel<T> {
-        return SubscriptionReceiveChannelWrapper(conflatedBroadcastChannel.openSubscription())
-                .also { onActivate(it) }
-    }
-
-    @MainThread
-    fun openSubscription(lifecycleOwner: LifecycleOwner): SubscriptionReceiveChannel<T> {
-        check(isMainThread())
-        val lifecycle = lifecycleOwner.lifecycle
-        val subscription = conflatedBroadcastChannel.openSubscription()
-        if (lifecycle.currentState == Lifecycle.State.DESTROYED) {
-            subscription.cancel()
-            return subscription
-        }
-        return SubscriptionReceiveChannelWithLifecycle(lifecycle, subscription)
-                .also { onActivate(it) }
+        return StatefulSubscriptionReceiveChannel(conflatedBroadcastChannel.openSubscription())
+                .also { if (!isClosedForSend && !it.isClosedForReceive) onActivate(it) }
     }
 
     @AnyThread
-    private fun onDeactivate(subscriptionWrapper: SubscriptionReceiveChannelWrapper<*>) {
+    private fun onDeactivate(subscriptionWrapper: StatefulSubscriptionReceiveChannel<*>) {
         if (subscriptionWrapper.activating.compareAndSet(true, false)) {
             val activeSubscriptionCount = activeSubscriptionCount.decrementAndGet()
             check(activeSubscriptionCount >= 0)
@@ -100,7 +81,7 @@ open class ColdBroadcastChannel<T : Any> private constructor(
     }
 
     @AnyThread
-    private fun onActivate(subscriptionWrapper: SubscriptionReceiveChannelWrapper<*>) {
+    private fun onActivate(subscriptionWrapper: StatefulSubscriptionReceiveChannel<*>) {
         if (subscriptionWrapper.activating.compareAndSet(false, true)) {
             activeSubscriptionCount.incrementAndGet()
             if (isActive.compareAndSet(false, true)) {
@@ -109,11 +90,19 @@ open class ColdBroadcastChannel<T : Any> private constructor(
         }
     }
 
-    private open inner class SubscriptionReceiveChannelWrapper<T : Any>(
-            private val subscription: ReceiveChannel<T>
-    ) : SubscriptionReceiveChannel<T>, ReceiveChannel<T> by subscription {
+    private open inner class StatefulSubscriptionReceiveChannel<T : Any> constructor(
+            private val subscription: SubscriptionReceiveChannel<T>
+    ) : SubscriptionReceiveChannel<T> by subscription, StatefulSubscription {
 
         val activating: AtomicBoolean = AtomicBoolean(false)
+
+        override fun setActive(active: Boolean) {
+            if (active) {
+                onActivate(this)
+            } else {
+                onDeactivate(this)
+            }
+        }
 
         override fun cancel(cause: Throwable?): Boolean {
             return subscription.cancel(cause).also { closed ->
@@ -122,41 +111,4 @@ open class ColdBroadcastChannel<T : Any> private constructor(
         }
     }
 
-    private inner class SubscriptionReceiveChannelWithLifecycle<T : Any> @MainThread constructor(
-            private val lifecycle: Lifecycle,
-            subscription: ReceiveChannel<T>
-    ) : SubscriptionReceiveChannelWrapper<T>(subscription.withLifecycle(lifecycle)), LifecycleObserver {
-
-        init {
-            check(isMainThread())
-            lifecycle.addObserver(this)
-        }
-
-        @MainThread
-        @OnLifecycleEvent(Lifecycle.Event.ON_ANY)
-        fun onAny(source: LifecycleOwner, event: Lifecycle.Event) {
-            if (lifecycle.currentState == Lifecycle.State.DESTROYED) {
-                cancel()
-                return
-            } else {
-                val shouldActive = lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
-                if (shouldActive) {
-                    onActivate(this)
-                } else {
-                    onDeactivate(this)
-                }
-            }
-        }
-
-        override fun cancel(cause: Throwable?): Boolean {
-            return super.cancel(cause).also { closed ->
-                if (closed) {
-                    launchOnMainThread {
-                        lifecycle.removeObserver(this)
-                    }
-                }
-            }
-        }
-
-    }
 }
