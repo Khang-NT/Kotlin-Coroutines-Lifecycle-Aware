@@ -47,6 +47,7 @@ class LifecycleEventChannel @MainThread private constructor(
         return channel.cancel(cause)
     }
 
+    @Suppress("UNUSED_PARAMETER")
     @MainThread
     @OnLifecycleEvent(Lifecycle.Event.ON_ANY)
     fun onAny(source: LifecycleOwner, event: Lifecycle.Event) {
@@ -65,4 +66,5 @@ class LifecycleEventChannel @MainThread private constructor(
             lifecycle.removeObserver(this)
         }
     }
+
 }

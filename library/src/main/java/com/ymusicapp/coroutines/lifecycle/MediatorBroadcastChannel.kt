@@ -35,6 +35,7 @@ class MediatorBroadcastChannel<T : Any> : ColdBroadcastChannel<T>() {
             sourceList.removeAll { source ->
                 if (source.origin === coldBroadcastChannel) {
                     source.unplugIfNotYet()
+                    source.clear()
                     true
                 } else {
                     false
@@ -61,14 +62,19 @@ class MediatorBroadcastChannel<T : Any> : ColdBroadcastChannel<T>() {
             val origin: BroadcastChannel<E>,
             val consumer: suspend MediatorBroadcastChannel<T>.(E) -> Unit
     ) {
+        private val subscription = origin.openSubscription()
         private var pluggingJob: Job? = null
 
         fun plugIfNotYet() {
             synchronized(this) {
                 if (pluggingJob?.isActive != true) {
+                    if (subscription is StatefulSubscription) {
+                        subscription.setActive(true)
+                    }
                     pluggingJob = launch(Unconfined) {
-                        origin.openSubscription().consumeEach {
-                            consumer(it)
+                        // do not close subscription until clear()
+                        for (element in subscription) {
+                            consumer(element)
                         }
                     }
                 }
@@ -79,8 +85,16 @@ class MediatorBroadcastChannel<T : Any> : ColdBroadcastChannel<T>() {
             synchronized(this) {
                 if (pluggingJob?.isActive == true) {
                     pluggingJob?.cancel()
+                    if (subscription is StatefulSubscription) {
+                        subscription.setActive(false)
+                    }
                 }
             }
         }
+
+        fun clear() {
+            subscription.close()
+        }
+
     }
 }
