@@ -1,9 +1,11 @@
 package com.ymusicapp.coroutines.lifecycle
 
+import android.arch.lifecycle.LifecycleOwner
 import android.support.annotation.AnyThread
-import kotlinx.coroutines.experimental.channels.BroadcastChannel
-import kotlinx.coroutines.experimental.channels.ConflatedBroadcastChannel
-import kotlinx.coroutines.experimental.channels.SubscriptionReceiveChannel
+import com.ymusicapp.coroutines.lifecycle.internal.StatefulSubscription
+import kotlinx.coroutines.channels.BroadcastChannel
+import kotlinx.coroutines.channels.ConflatedBroadcastChannel
+import kotlinx.coroutines.channels.ReceiveChannel
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -64,9 +66,15 @@ open class ColdBroadcastChannel<T : Any> private constructor(
      */
     fun hasActiveSubscriptions() = isActive.get()
 
-    override fun openSubscription(): SubscriptionReceiveChannel<T> {
+
+    override fun openSubscription(): ReceiveChannel<T> {
         return StatefulSubscriptionReceiveChannel(conflatedBroadcastChannel.openSubscription())
-                .also { if (!isClosedForSend && !it.isClosedForReceive) onActivate(it) }
+    }
+
+    fun openSubscription(lifecycleOwner: LifecycleOwner?): ReceiveChannel<T> {
+        return openSubscription().run {
+            if (lifecycleOwner != null) withLifecycle(lifecycleOwner) else this
+        }
     }
 
     @AnyThread
@@ -90,9 +98,9 @@ open class ColdBroadcastChannel<T : Any> private constructor(
         }
     }
 
-    private open inner class StatefulSubscriptionReceiveChannel<T : Any> constructor(
-            private val subscription: SubscriptionReceiveChannel<T>
-    ) : SubscriptionReceiveChannel<T> by subscription, StatefulSubscription {
+    private inner class StatefulSubscriptionReceiveChannel<T : Any> constructor(
+            private val subscriptionChannel: ReceiveChannel<T>
+    ) : ReceiveChannel<T> by subscriptionChannel, StatefulSubscription {
 
         val activating: AtomicBoolean = AtomicBoolean(false)
 
@@ -105,7 +113,7 @@ open class ColdBroadcastChannel<T : Any> private constructor(
         }
 
         override fun cancel(cause: Throwable?): Boolean {
-            return subscription.cancel(cause).also { closed ->
+            return subscriptionChannel.cancel(cause).also { closed ->
                 if (closed) onDeactivate(this)
             }
         }

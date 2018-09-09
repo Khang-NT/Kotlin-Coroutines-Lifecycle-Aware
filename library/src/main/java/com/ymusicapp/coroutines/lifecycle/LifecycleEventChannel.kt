@@ -4,67 +4,62 @@ import android.arch.lifecycle.Lifecycle
 import android.arch.lifecycle.LifecycleObserver
 import android.arch.lifecycle.LifecycleOwner
 import android.arch.lifecycle.OnLifecycleEvent
-import android.support.annotation.AnyThread
 import android.support.annotation.MainThread
-import kotlinx.coroutines.experimental.Unconfined
-import kotlinx.coroutines.experimental.android.UI
-import kotlinx.coroutines.experimental.channels.Channel
-import kotlinx.coroutines.experimental.channels.ClosedSendChannelException
-import kotlinx.coroutines.experimental.channels.ReceiveChannel
-import kotlinx.coroutines.experimental.launch
+import com.ymusicapp.coroutines.lifecycle.internal.isDestroyed
+import com.ymusicapp.coroutines.lifecycle.internal.isMainThread
+import com.ymusicapp.coroutines.lifecycle.internal.tryOffer
+import com.ymusicapp.coroutines.lifecycle.internal.trySend
+import kotlinx.coroutines.Unconfined
+import kotlinx.coroutines.android.UI
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.launch
+import timber.log.Timber
+import java.lang.ref.WeakReference
 
-/**
- * Bring [Lifecycle.Event]s to coroutine world with [Channel].
- */
-@Suppress("unused")
-class LifecycleEventChannel @MainThread private constructor(
-        private val lifecycle: Lifecycle,
+class LifecycleEventChannel private constructor(
+        private val lifecycleOwnerWeakRef: WeakReference<LifecycleOwner>,
         private val channel: Channel<Lifecycle.Event>
 ) : LifecycleObserver, ReceiveChannel<Lifecycle.Event> by channel {
 
-    @MainThread
     constructor(
             lifecycleOwner: LifecycleOwner,
-            capacity: Int = 0
-    ) : this(lifecycleOwner.lifecycle, Channel(capacity))
-
-    @MainThread
-    constructor(
-            lifecycle: Lifecycle,
-            capacity: Int = 0
-    ) : this(lifecycle, Channel(capacity))
+            capacity: Int = Channel.CONFLATED
+    ) : this(WeakReference(lifecycleOwner), Channel(capacity))
 
     init {
-        check(isMainThread())
-        lifecycle.addObserver(this)
-    }
-
-    @AnyThread
-    override fun cancel(cause: Throwable?): Boolean {
-        launchOnMainThread {
-            lifecycle.removeObserver(this@LifecycleEventChannel)
+        launch(UI.immediate) {
+            lifecycleOwnerWeakRef.get()?.let { lifecycleOwner ->
+                if (!lifecycleOwner.lifecycle.isDestroyed) {
+                    lifecycleOwner.lifecycle.addObserver(this@LifecycleEventChannel)
+                    return@launch
+                }
+            }
+            // lifecycle owner dead
+            channel.tryOffer(Lifecycle.Event.ON_DESTROY)
+            channel.close()
         }
-        return channel.cancel(cause)
+        channel.invokeOnClose { _ ->
+            if (!isMainThread) {
+                Timber.w("Detect call LifecycleEventBroadcast.close() on background thread")
+            }
+            launch(UI.immediate) {
+                lifecycleOwnerWeakRef.get()?.lifecycle?.removeObserver(this@LifecycleEventChannel)
+            }
+        }
     }
 
     @Suppress("UNUSED_PARAMETER")
     @MainThread
     @OnLifecycleEvent(Lifecycle.Event.ON_ANY)
     fun onAny(source: LifecycleOwner, event: Lifecycle.Event) {
-        check(event != Lifecycle.Event.ON_ANY) { "Invalid event" }
         launch(Unconfined) {
-            try {
-                channel.send(event)
-                if (event == Lifecycle.Event.ON_DESTROY) {
-                    channel.close()
-                }
-            } catch (ignore: ClosedSendChannelException) {
-                // channel just closed, ignore this
+            channel.trySend(event)?.let { error ->
+                Timber.e(error)
             }
         }
-        if (event == Lifecycle.Event.ON_DESTROY) {
-            lifecycle.removeObserver(this)
+        if (source.lifecycle.isDestroyed) {
+            channel.close()
         }
     }
-
 }

@@ -1,23 +1,22 @@
 package com.ymusicapp.coroutines.lifecycle
 
-import android.support.annotation.GuardedBy
-import kotlinx.coroutines.experimental.Job
-import kotlinx.coroutines.experimental.Unconfined
-import kotlinx.coroutines.experimental.channels.BroadcastChannel
-import kotlinx.coroutines.experimental.channels.consumeEach
-import kotlinx.coroutines.experimental.launch
+import com.ymusicapp.coroutines.lifecycle.internal.StatefulSubscription
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.Unconfined
+import kotlinx.coroutines.channels.BroadcastChannel
+import kotlinx.coroutines.launch
+import java.util.concurrent.CopyOnWriteArraySet
 
 class MediatorBroadcastChannel<T : Any> : ColdBroadcastChannel<T>() {
 
-    private val sourceListLock = Any()
-    @GuardedBy("sourceListLock")
-    private val sourceList = mutableListOf<Source<*>>()
+    private val lock = Any()
+    private val sourceList = CopyOnWriteArraySet<Source<*>>()
 
     fun <E> addSource(
             coldBroadcastChannel: BroadcastChannel<E>,
             consumer: suspend MediatorBroadcastChannel<T>.(E) -> Unit
     ) {
-        synchronized(sourceListLock) {
+        synchronized(lock) {
             val source = Source(coldBroadcastChannel, consumer)
             sourceList.add(source)
             if (hasActiveSubscriptions()) {
@@ -31,7 +30,7 @@ class MediatorBroadcastChannel<T : Any> : ColdBroadcastChannel<T>() {
     }
 
     fun removeSource(coldBroadcastChannel: BroadcastChannel<*>) {
-        synchronized(sourceListLock) {
+        synchronized(lock) {
             sourceList.removeAll { source ->
                 if (source.origin === coldBroadcastChannel) {
                     source.unplugIfNotYet()
@@ -46,14 +45,14 @@ class MediatorBroadcastChannel<T : Any> : ColdBroadcastChannel<T>() {
 
     override fun onBecomeActive() {
         super.onBecomeActive()
-        synchronized(sourceListLock) {
+        synchronized(lock) {
             sourceList.forEach { it.plugIfNotYet() }
         }
     }
 
     override fun onBecomeInactive() {
         super.onBecomeInactive()
-        synchronized(sourceListLock) {
+        synchronized(lock) {
             sourceList.forEach { it.unplugIfNotYet() }
         }
     }
@@ -62,38 +61,37 @@ class MediatorBroadcastChannel<T : Any> : ColdBroadcastChannel<T>() {
             val origin: BroadcastChannel<E>,
             val consumer: suspend MediatorBroadcastChannel<T>.(E) -> Unit
     ) {
+        private val sourceLock = Any()
         private val subscription = origin.openSubscription()
         private var pluggingJob: Job? = null
 
         fun plugIfNotYet() {
-            synchronized(this) {
+            synchronized(sourceLock) {
                 if (pluggingJob?.isActive != true) {
-                    if (subscription is StatefulSubscription) {
-                        subscription.setActive(true)
-                    }
                     pluggingJob = launch(Unconfined) {
                         // do not close subscription until clear()
                         for (element in subscription) {
                             consumer(element)
                         }
                     }
-                }
-            }
-        }
-
-        fun unplugIfNotYet() {
-            synchronized(this) {
-                if (pluggingJob?.isActive == true) {
-                    pluggingJob?.cancel()
                     if (subscription is StatefulSubscription) {
-                        subscription.setActive(false)
+                        subscription.setActive(true)
                     }
                 }
             }
         }
 
+        fun unplugIfNotYet() {
+            synchronized(sourceLock) {
+                pluggingJob?.cancel()
+                if (subscription is StatefulSubscription) {
+                    subscription.setActive(false)
+                }
+            }
+        }
+
         fun clear() {
-            subscription.close()
+            subscription.cancel()
         }
 
     }

@@ -1,9 +1,10 @@
 project.ext {
     config = [compileSdkVersion: 27,
-              buildToolsVersion: "27.0.3",
+              buildToolsVersion: "28.0.2",
               targetSdkVersion : 27,
               minSdkVersion    : 16]
 
-    kotlinCoroutinesVersion = "0.22.5"
+    kotlinCoroutinesVersion = "0.25.3-eap13"
     lifecycleVersion = "1.1.1"
+    timberLoggerVersion = "4.7.0"
 }

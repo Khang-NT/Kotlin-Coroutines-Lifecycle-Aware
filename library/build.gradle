@@ -5,6 +5,7 @@ apply from: '../constants.gradle'
 repositories {
     jcenter()
     google()
+    maven { url "http://dl.bintray.com/kotlin/kotlin-eap" }
 }
 
 android {
@@ -27,6 +28,8 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinCoroutinesVersion"
 
     implementation "android.arch.lifecycle:runtime:$lifecycleVersion"
+
+    implementation "com.jakewharton.timber:timber:$timberLoggerVersion"
 }
 
 tasks.withType(Javadoc).all {
