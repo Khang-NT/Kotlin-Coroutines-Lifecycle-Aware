@@ -76,7 +76,7 @@ internal suspend fun <T : Any> ReceiveChannel<T>.forEachWithLifecycle(
                 }
                 return@onReceiveOrNull true
             }
-            lifecycleEventChannel.onReceiveOrNull { _ ->
+            lifecycleEventChannel.onReceiveOrNull { event ->
                 val isActive = lifecycle.isAtLeastStarted
                 (this as? StatefulSubscription)?.setActive(isActive)
                 pendingDispatchElement?.let { element ->
@@ -85,7 +85,7 @@ internal suspend fun <T : Any> ReceiveChannel<T>.forEachWithLifecycle(
                         pendingDispatchElement = null
                     }
                 }
-                return@onReceiveOrNull true
+                return@onReceiveOrNull event != null
             }
         }
     } finally {
