@@ -1,8 +1,9 @@
 package com.ymusicapp.coroutines.lifecycle
 
 import com.ymusicapp.coroutines.lifecycle.internal.StatefulSubscription
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.Unconfined
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.launch
 import java.util.concurrent.CopyOnWriteArraySet
@@ -68,7 +69,7 @@ class MediatorBroadcastChannel<T : Any> : ColdBroadcastChannel<T>() {
         fun plugIfNotYet() {
             synchronized(sourceLock) {
                 if (pluggingJob?.isActive != true) {
-                    pluggingJob = launch(Unconfined) {
+                    pluggingJob = GlobalScope.launch(Dispatchers.Unconfined) {
                         // do not close subscription until clear()
                         for (element in subscription) {
                             consumer(element)

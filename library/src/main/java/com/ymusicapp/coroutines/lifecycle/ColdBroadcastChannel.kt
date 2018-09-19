@@ -72,8 +72,12 @@ open class ColdBroadcastChannel<T : Any> private constructor(
     }
 
     fun openSubscription(lifecycleOwner: LifecycleOwner?): ReceiveChannel<T> {
-        return openSubscription().run {
-            if (lifecycleOwner != null) withLifecycle(lifecycleOwner) else this
+        return openSubscription().let { channel ->
+            if (lifecycleOwner != null) {
+                with(lifecycleOwner.lifecycleScope()) {
+                    channel.withLifecycle()
+                }
+            } else channel
         }
     }
 

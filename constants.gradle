@@ -4,7 +4,7 @@ project.ext {
               targetSdkVersion : 27,
               minSdkVersion    : 16]
 
-    kotlinCoroutinesVersion = "0.25.3-eap13"
+    kotlinCoroutinesVersion = "0.26.0-eap13"
     lifecycleVersion = "1.1.1"
     timberLoggerVersion = "4.7.0"
 }
