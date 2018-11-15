@@ -24,7 +24,7 @@ ext {
               targetSdkVersion : 27,
               minSdkVersion    : 16]
 
-    kotlinCoroutinesVersion = "0.26.1-eap13"
+    kotlinCoroutinesVersion = "1.0.1"
     androidArchLibVersion = "1.1.1"
     timberLoggerVersion = "4.7.0"
 }

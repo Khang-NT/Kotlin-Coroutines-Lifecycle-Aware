@@ -7,12 +7,12 @@ import android.arch.lifecycle.OnLifecycleEvent
 import com.ymusicapp.coroutines.lifecycle.internal.StatefulSubscription
 import com.ymusicapp.coroutines.lifecycle.internal.isMainThread
 import kotlinx.coroutines.*
-import kotlinx.coroutines.android.Main
 import kotlinx.coroutines.channels.*
 import kotlinx.coroutines.selects.whileSelect
 import java.lang.ref.WeakReference
 import kotlin.coroutines.CoroutineContext
 
+@ExperimentalCoroutinesApi
 class LifecycleScope<T : LifecycleOwner>(
         lifecycleOwner: T,
         parent: Job? = null
@@ -101,15 +101,16 @@ class LifecycleScope<T : LifecycleOwner>(
         }
     }
 
-    fun <T : Any> ReceiveChannel<T>.withLifecycle(
-            context: CoroutineContext = Dispatchers.Unconfined,
-            capacity: Int = Channel.CONFLATED
-    ): ReceiveChannel<T> = produce(context, capacity, onCompletion = consumes()) {
-        forEach(this::send)
-    }
+//    fun <T : Any> ReceiveChannel<T>.withLifecycle(
+//            context: CoroutineContext = Dispatchers.Unconfined,
+//            capacity: Int = Channel.CONFLATED
+//    ): ReceiveChannel<T> = produce(context, capacity) {
+//        forEach(this::send)
+//    }
 
 }
 
+@ExperimentalCoroutinesApi
 fun <T : LifecycleOwner> T.lifecycleScope(parent: Job? = null): LifecycleScope<T> {
     return LifecycleScope(this, parent)
 }
