@@ -1,4 +1,3 @@
-[![Download](https://api.bintray.com/packages/khang-nt/maven/channel-lifecycle/images/download.svg)](https://bintray.com/khang-nt/maven/channel-lifecycle/_latestVersion)
 # Coroutine channel lifecycle-aware
 If you've already tried both coroutine channel and [Jetpack's LiveData](https://developer.android.com/jetpack/), you
 will find that coroutine channel is more robust and flexible than LiveData, but it lacks of handling
@@ -7,96 +6,84 @@ Android's lifecycle.
 This library aims to make coroutine channel aware with Android's lifecycle, especially acting like
 [LiveData's behavior](https://developer.android.com/topic/libraries/architecture/livedata).
 
-### Lifecycle-aware
-```kotlin
-// with LiveData
-val liveData: LiveData<Int> = TODO()
-liveData.observe(lifecycleOwner, Observer { value: Int? ->
-    if (value != null) {
-        // consume value here
-    }
-})
+# Install
 
-// with channel
-val receiveChannel: ReceiveChannel<Int> = TODO()
-launch(UI) {
-    receiveChannel.withLifecycle(lifecycleOwner).consumeEach { value: Int ->
-        // value always non-null, consume it here
+Latest version in `jcenter()` is out of date, I will try to publish new one as soon as possible,
+for now you can clone the source code and import to your project manually.
+
+# Example usage
+
+```kotlin
+class YourActivity : AppCompatActivity() {
+
+    // create CoroutineScope using lifecycleScope() extension
+    // this scope has Main dispatcher in coroutine context, plus some convenience methods below
+    private val lifecycleScope by lazy { this.lifecycleScope() }
+
+    private val yourViewModel by lazy<YourViewModel> { TODO() }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // with lifecycleScope, here is ALL what you can do with it
+
+        lifecycleScope.launch {
+            // ... create new coroutine (launch, async) that auto cancel when activity destroy
+        }
+
+        with(lifecycleScope) {
+            launch { // just like launch statement above, but here you can use this magic extension
+                yourViewModel.receiveData().observe { value ->
+                    println(value)
+                    // "observe" behaves like "consumeEach", but it won't callback during activity inactive
+                    // + Only last item is kept during activity inactive
+                    // + When activity active back, it emit the last item (if any) and continue
+                }
+            }
+
+            // short form of the code above
+            yourViewModel.receiveData().observeAsync { value ->
+                println(value)
+            }
+        }
     }
 }
-```
 
-Now you can use **`withLifecycle`** extension to convert your channel to "lifecycle-aware channel":
-  * This channel won't notify new value when `lifecycleOwner` is inactive (e.g Activity/Fragment paused)
-  * Latest value will deliver when `lifecycleOwner` back to `RESUMED` state.
-  * Auto `cancel()` when `lifecycleOwner` goes to `DESTROYED` state, no more worry about memory leak
+class YourViewModel : ViewModel(), CoroutineScope {
+    private val masterJob = Job()
+    override val coroutineContext: CoroutineContext = Dispatchers.IO + masterJob
 
-### How to stop receiving update
+    // You can use any type of BroadcastChannel here
+    // BUT ConflatedBroadcastChannel is recommended, because it replay last item when open new subscription
+    // And because of another reason, regardless the behavior of broadcast channel, when
+    // use method "observe" and "observeAsync", only last item is kept during activity inactive.
+    private val yourBroadcastChannel = ConflatedBroadcastChannel<Int>()
 
-With `LiveData`, you can call `removeObserver(observer)` or `removeObservers(lifecycleOwner)`.
-
-With coroutine channel, we have various ways to stop receive update:
-  * Cancel the job of coroutine context
-  * Cancel the channel returned by method `withLifecycle`
-    _Note: cancel this chanel doesn't cancel the `receiveChannel`_
-  * Cancel the `receiveChannel`
-
-### Multiple observers
-
-With `LiveData`, you can call `observe()` method multiple time, then all observers will receive the same update.
-
-With coroutine channel, it depends on which type of channel you are using:
-  * If you want each value only consume only one time, by one observer. Use `Channel()`
-  * If you want all observer receive same update. Use `BroadcastChannel()`
-
-### Observe data on background thread?
-
-With `LiveData`, you can't observe data on background thread directly.
-
-With coroutine channel, this is much more flexible, just consume our channel using other dispatcher in coroutine context, such as `CommonPool`.
-
-### ColdBroadcastChannel - LiveData#onActive/onInactive alternative
-
-You can inherit `LiveData` class to take advantage of method `onActive` and `onInactive`, for instance when using with Room,
-you can stop listen database changes when `LiveData` become inactive.
-
-Alternative class available in this library is `ColdBroadcastChannel`, example usage:
-```kotlin
-val coldBroadcastChannel = object : ColdBroadcastChannel<Model>(Channel.CONFLATED) {
-    var job: Job? = null
-
-    override fun onBecomeActive() {
-        job = Job()
-        launch(parent = job) {
-            database.observeChange {
-                send(database.query())
+    init {
+        // launch your worker in background thread
+        // independent with Activity/Fragment lifecycle
+        launch {
+            while (isActive) {
+                yourBroadcastChannel.offer(Random().nextInt())
+                delay(1000)
             }
         }
     }
 
-    override fun onBecomeInactive() {
-        job.cancel()
-    }
-}
+    fun receiveData() = yourBroadcastChannel.openSubscription()
 
-// usage
-launch(UI) {
-    coldBroadcastChannel.openSubscription().consumeEach {
-        // stuff
-    }
-    // or open subscription with lifecycle-aware
-    coldBroadcastChannel.openSubscription(lifecycleOwner).consumeEach {
-        // stuff, it works like method withLifecycle
+    override fun onCleared() {
+        super.onCleared()
+        masterJob.cancel()
     }
 }
 
 ```
 
+# App using this library
 
-# Download
-```groovy
-implementation "com.ymusicapp.coroutines:channel-lifecycle:<latest-version>"
-```
+- [YMusic](https://ymusic.io)
+- MediaConverterPro: [Source](https://github.com/Khang-NT/Android-Media-Converter/), [PlayStore](https://play.google.com/store/apps/details?id=com.github.khangnt.mcp)
 
 # License
 [Apache License Version 2.0](LICENSE)
