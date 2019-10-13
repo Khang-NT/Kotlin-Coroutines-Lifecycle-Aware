@@ -1,9 +1,8 @@
 package com.ymusicapp.coroutines.lifecycle
 
+import android.arch.lifecycle.DefaultLifecycleObserver
 import android.arch.lifecycle.Lifecycle
-import android.arch.lifecycle.LifecycleObserver
 import android.arch.lifecycle.LifecycleOwner
-import android.arch.lifecycle.OnLifecycleEvent
 import com.ymusicapp.coroutines.lifecycle.internal.StatefulSubscription
 import com.ymusicapp.coroutines.lifecycle.internal.isMainThread
 import kotlinx.coroutines.*
@@ -13,10 +12,11 @@ import kotlinx.coroutines.selects.whileSelect
 import java.lang.ref.WeakReference
 import kotlin.coroutines.CoroutineContext
 
+
 class LifecycleScope<T : LifecycleOwner>(
         lifecycleOwner: T,
         parent: Job? = null
-) : CoroutineScope, LifecycleObserver {
+) : CoroutineScope, DefaultFullLifecycleObserver {
 
     private val lifecycleOwnerWeakRef = WeakReference(lifecycleOwner)
     private val lifecycleBroadcast = ConflatedBroadcastChannel<Lifecycle.State>()
@@ -36,20 +36,6 @@ class LifecycleScope<T : LifecycleOwner>(
         } else {
             lifecycleBroadcast.offer(currentState)
             lifecycleOwner.lifecycle.addObserver(this)
-        }
-    }
-
-    @Suppress("UNUSED_PARAMETER")
-    @OnLifecycleEvent(Lifecycle.Event.ON_ANY)
-    internal fun onAny(source: LifecycleOwner, event: Lifecycle.Event) {
-        if (currentState != source.lifecycle.currentState) {
-            currentState = source.lifecycle.currentState
-            lifecycleBroadcast.offer(currentState)
-        }
-        if (currentState == Lifecycle.State.DESTROYED) {
-            job.cancel()
-            lifecycleBroadcast.close()
-            source.lifecycle.removeObserver(this)
         }
     }
 
@@ -108,7 +94,39 @@ class LifecycleScope<T : LifecycleOwner>(
         forEach(this::send)
     }
 
+
+    override fun onAny(owner: LifecycleOwner, event: Lifecycle.Event) {
+        super.onAny(owner, event)
+        if (currentState != owner.lifecycle.currentState) {
+            currentState = owner.lifecycle.currentState
+            lifecycleBroadcast.offer(currentState)
+        }
+        if (currentState == Lifecycle.State.DESTROYED) {
+            job.cancel()
+            lifecycleBroadcast.close()
+            owner.lifecycle.removeObserver(this)
+        }
+    }
+
 }
+
+private interface DefaultFullLifecycleObserver : DefaultLifecycleObserver {
+
+    override fun onCreate(owner: LifecycleOwner) = onAny(owner, Lifecycle.Event.ON_CREATE)
+
+    override fun onResume(owner: LifecycleOwner) = onAny(owner, Lifecycle.Event.ON_RESUME)
+
+    override fun onPause(owner: LifecycleOwner) = onAny(owner, Lifecycle.Event.ON_PAUSE)
+
+    override fun onStart(owner: LifecycleOwner) = onAny(owner, Lifecycle.Event.ON_START)
+
+    override fun onStop(owner: LifecycleOwner) = onAny(owner, Lifecycle.Event.ON_STOP)
+
+    override fun onDestroy(owner: LifecycleOwner) = onAny(owner, Lifecycle.Event.ON_DESTROY)
+
+    fun onAny(owner: LifecycleOwner, event: Lifecycle.Event) = Unit
+}
+
 
 fun <T : LifecycleOwner> T.lifecycleScope(parent: Job? = null): LifecycleScope<T> {
     return LifecycleScope(this, parent)
