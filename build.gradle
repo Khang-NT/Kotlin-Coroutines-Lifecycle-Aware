@@ -20,7 +20,7 @@ task clean(type: Delete) {
 
 ext {
     config = [compileSdkVersion: 28,
-              buildToolsVersion: "28.0.3",
+              buildToolsVersion: "29.0.2",
               targetSdkVersion : 27,
               minSdkVersion    : 16]
 
