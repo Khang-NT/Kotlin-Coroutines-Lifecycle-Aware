@@ -1,7 +1,7 @@
 package com.ymusicapp.coroutines.lifecycle
 
-import android.arch.lifecycle.LifecycleOwner
-import android.support.annotation.AnyThread
+import androidx.lifecycle.LifecycleOwner
+import androidx.annotation.AnyThread
 import com.ymusicapp.coroutines.lifecycle.internal.StatefulSubscription
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.channels.ConflatedBroadcastChannel

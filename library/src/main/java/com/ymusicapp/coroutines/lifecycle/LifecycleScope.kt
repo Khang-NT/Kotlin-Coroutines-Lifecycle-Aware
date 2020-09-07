@@ -1,8 +1,8 @@
 package com.ymusicapp.coroutines.lifecycle
 
-import android.arch.lifecycle.DefaultLifecycleObserver
-import android.arch.lifecycle.Lifecycle
-import android.arch.lifecycle.LifecycleOwner
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
 import com.ymusicapp.coroutines.lifecycle.internal.StatefulSubscription
 import com.ymusicapp.coroutines.lifecycle.internal.isMainThread
 import kotlinx.coroutines.*

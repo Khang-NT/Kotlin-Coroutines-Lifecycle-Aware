@@ -26,8 +26,8 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlinVersion"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlinCoroutinesVersion"
 
-    implementation "android.arch.lifecycle:runtime:$androidArchLibVersion"
-    implementation "android.arch.lifecycle:common-java8:$androidArchLibVersion"
+    implementation 'androidx.lifecycle:lifecycle-runtime:2.0.0'
+    implementation 'androidx.lifecycle:lifecycle-common-java8:2.0.0'
 
     implementation "com.jakewharton.timber:timber:$timberLoggerVersion"
 }

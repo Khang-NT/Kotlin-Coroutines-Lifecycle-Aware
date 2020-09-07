@@ -1,6 +1,6 @@
 package com.ymusicapp.coroutines.lifecycle.internal
 
-import android.arch.lifecycle.Lifecycle
+import androidx.lifecycle.Lifecycle
 import android.os.Looper
 import com.ymusicapp.coroutines.lifecycle.BuildConfig
 import kotlinx.coroutines.channels.SendChannel
